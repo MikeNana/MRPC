@@ -1,0 +1,19 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "g++",
+            "args":[
+                "-g","-o","Buffer","-I/usr/include/boost_1_71_0",
+                "-L/usr/local/lib/boost_1_71_0","-std=c++11",
+                "Buffer.cc","-lboost_thread","-lpthread"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
