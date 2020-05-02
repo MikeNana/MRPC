@@ -3,6 +3,8 @@
 
 #include <string.h>
 
+namespace
+{
 //a simple string class
 class MyString
 {
@@ -29,7 +31,8 @@ public:
         return c_string_ == nullptr ? 0 : strlen(c_string_);
     }
     void Set(const char* c_string);
-
 };
+}
+
 
 #endif GTEST_SAMPLE2_H
