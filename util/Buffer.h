@@ -44,20 +44,24 @@ public:
     void operator = (Buffer&&);
     Buffer(Buffer&&);
     
-    size_t readablesize()
+    size_t readablesize() const
     {
         if(writepos_ >= readpos_)
             return writepos_-readpos_;
         return 0;
     }
 
-    size_t writablesize()
+    size_t writablesize() const
     {
         if(writepos_ <= capacity_)
             return capacity_-writepos_;
         return 0;
     }
 
+    size_t capacity() const
+    {
+        return capacity_;
+    }
     char* readaddr()
     {
         return &buffer_[readpos_];

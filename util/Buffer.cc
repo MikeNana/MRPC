@@ -140,16 +140,16 @@ size_t Buffer::PushData(const void* data, size_t len)
 size_t Buffer::PopData(void* des, size_t len)
 {
     size_t len_ = PeekDataAt(des, len);
-    Consume(len_);
+    Consume(len_);  //adjust readpos_ and writepos_
     return len_;
 }
-
+//PeekDataAt doesn't adjust readpos_ and writepos_
 size_t Buffer::PeekDataAt(void* des, size_t len, size_t offset)
 {
     size_t readsize = readablesize();
     if(!des || offset > readsize || len == 0)
         return 0;
-//如果尺寸超过可读范围，则截取
+//if the size is bigger than readable size, truncate it
     if(len+offset > readsize)
         len = readsize - offset;
     memcpy(des, &buffer_[readpos_+offset], len);
@@ -171,22 +171,10 @@ void Buffer::Produce(size_t len)
     writepos_ += len;
     return;
 }
-
 }
+//namesapce mrpc
 
 
-
-using namespace mrpc;
-int main()
-{
-    const char* test = "abcdefghijklmn";
-    Buffer buffer1;
-    buffer1.PushData(test, 15);
-    char* tmp;
-    buffer1.PopData(tmp, 9);
-    std::cout << tmp << std::endl;
-    return 0;
-}
 
 
 
