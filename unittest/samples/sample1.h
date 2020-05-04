@@ -3,7 +3,7 @@
 
 //test two functions
 //1.return n!
-int factorial(int n);
+int Factorial(int n);
 //2.return whether n is a prime number
 bool IsPrime(int n);
 

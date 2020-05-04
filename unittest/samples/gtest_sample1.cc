@@ -4,22 +4,22 @@
 
 TEST(FactorialTest, Negative)
 {
-    EXPECT_EQ(1, factorial(-5));
-    EXPECT_EQ(1, factorial(-1));
-    EXPECT_GT(factorial(-10), 0);
+    EXPECT_EQ(1, Factorial(-5));
+    EXPECT_EQ(1, Factorial(-1));
+    EXPECT_GT(Factorial(-10), 0);
 }
 
 TEST(FactorialTest, Positive)
 {
-    EXPECT_EQ(1, factorial(1));
-    EXPECT_EQ(2, factorial(2));
-    EXPECT_EQ(6, factorial(3));
-    EXPECT_NE(8, factorial(12));
+    EXPECT_EQ(1, Factorial(1));
+    EXPECT_EQ(2, Factorial(2));
+    EXPECT_EQ(6, Factorial(3));
+    EXPECT_NE(8, Factorial(12));
 }
 
 TEST(FactorialTest, Zero)
 {
-    EXPECT_EQ(1, factorial(0));
+    EXPECT_EQ(1, Factorial(0));
 }
 
 TEST(IsPrimeTest, Negative)
