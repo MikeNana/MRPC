@@ -143,6 +143,7 @@ size_t Buffer::PopData(void* des, size_t len)
     Consume(len_);  //adjust readpos_ and writepos_
     return len_;
 }
+
 //PeekDataAt doesn't adjust readpos_ and writepos_
 size_t Buffer::PeekDataAt(void* des, size_t len, size_t offset)
 {
@@ -172,7 +173,7 @@ void Buffer::Produce(size_t len)
     return;
 }
 }
-//namesapce mrpc
+//end namesapce mrpc
 
 
 

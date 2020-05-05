@@ -242,7 +242,6 @@ struct SliceVector
 private:
     Slicecontainer Slices;
 };
-
 }
 
 #endif
