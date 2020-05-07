@@ -1,3 +1,5 @@
+#include <vector>
+#include <cassert>
 #include "Timer.h"
 
 namespace mrpc
@@ -5,15 +7,13 @@ namespace mrpc
 namespace internal
 {
 
-TimerManager::TimerManager()
-{
+unsigned int TimerManager::s_timer_id_gen_ = 0;
 
-}
+TimerManager::TimerManager()
+{}
 
 TimerManager::~TimerManager()
-{
-
-}
+{}
 
 void TimerManager::Update()
 {
@@ -21,6 +21,7 @@ void TimerManager::Update()
         return;
     
     const auto now = std::chrono::steady_clock::now();
+    
     for(auto it(timers_.begin()); it != timers_.end(); )
     {
         if(it->first > now)
@@ -32,7 +33,6 @@ void TimerManager::Update()
         //erase and replace the timer
         Timer timer(std::move(it->second));
         it = timers_.erase(it);
-
         if(timer.count_ != 0)
         {
             //need reschedule
@@ -49,6 +49,7 @@ bool TimerManager::Cancel(TimerId id)
     auto begin = timers_.lower_bound(id->first);
     if(begin == timers_.end())
         return false;
+
     auto end = timers_.upper_bound(id->first);
     for(auto it(begin); it != end; ++it)
     {
@@ -58,6 +59,7 @@ bool TimerManager::Cancel(TimerId id)
             return true;
         }
     }
+
     return false;
 }
 
@@ -75,7 +77,8 @@ DurationMs TimerManager::NearestTimer() const
 }
 
 TimerManager::Timer::Timer(const TimePoint& tp):
-    id_(std::make_shared<std::pair<TimePoint, unsigned int>>(tp, ++ TimerManager::s_timer_id_gen_)), count_(Kforever)
+    id_(std::make_shared<std::pair<TimePoint, unsigned int>>(tp, ++ TimerManager::s_timer_id_gen_)), 
+    count_(Kforever)
 {}
 
 void TimerManager::Timer::_Move(Timer&& timer)
@@ -102,6 +105,7 @@ void TimerManager::Timer::OnTimer()
 {
     if(!func_ || count_ == 0)
         return;
+        
     if(count_ == Kforever || count_-- > 0)
     {
         func_();
@@ -123,6 +127,8 @@ unsigned int TimerManager::Timer::UniqueId() const
     return id_->second;
 }
 
-}//end namespace internal
 
+}//end namespace internal
 }//end namespace mrpc
+
+
