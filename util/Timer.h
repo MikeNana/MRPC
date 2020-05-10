@@ -103,6 +103,7 @@ private:
     friend class Timer;
 
     //not thread-safe, but why not care?
+    //check whether ensure thread-safe on upper code
     static unsigned int s_timer_id_gen_;
 };
 
