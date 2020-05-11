@@ -15,11 +15,9 @@ public:
     bool Open(const char* file, bool bAppend = true);
     void Close();
     bool Sync();
-
     void Truncate(std::size_t size);
-
     void Write(const void* data, std::size_t len);
-    
+
     template<typename T>
     void Write(const T& t);
 

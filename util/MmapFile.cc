@@ -4,6 +4,8 @@
 #include <sys/stat.h> 
 #include <unistd.h>
 #include <sys/mman.h>
+#include <string>
+#include <string.h>
 #include "MmapFile.h"
 
 namespace mrpc {
@@ -89,6 +91,73 @@ void OMmapFile::Close()
     }
 }
 
+bool OMmapFile::Sync()
+{
+    if(file_ == kInvalidFile)
+        return false;
+    if(syncpos_ >= offset_)
+        return false;
+    
+    ::msync(memory_ + syncpos_, offset_ - syncpos_, MS_SYNC);
+    syncpos_ = offset_;
+    return true;
+}
 
+bool OMmapFile::_MapWriteOnly()
+{
+    if(size_ == 0 || file_ == kInvalidFile)
+    {
+        assert(false);
+        return false;
+    }
+
+    memory_ = (char*)::mmap(0, size_, PROT_WRITE, MAP_SHARED, file_, 0);
+    return (memory_ != kInvalidAddr);
 }
+
+void OMmapFile::Truncate(std::size_t  size) {
+    if (size == size_)
+        return;
+
+    size_ = size;
+    int ret = ::ftruncate(file_, size_);
+    assert (ret == 0);
+
+    if (offset_> size_)
+        offset_ = size_;
+
+    _MapWriteOnly();
 }
+
+bool OMmapFile::IsOpen() const
+{
+    return file_ != kInvalidFile;
+}
+
+void OMmapFile::Write(const void* data, size_t len)
+{
+    _AssureSpace(len);
+
+    assert(offset_ + len < size_);
+
+    ::memcpy(memory_ + offset_, data, len);
+    offset_ += len;
+    assert(offset_ <= size_);
+}
+
+void OMmapFile::_AssureSpace(size_t len)
+{
+    size_t newsize = size_;
+    while(offset_ + len > newsize)
+    {
+        if(newsize == 0)
+            newsize = kDefaultSize;
+        else
+            newsize *= 2;
+    }
+
+    _ExtendFileSize(newsize);
+}
+
+}   // end namespace internal
+}   // end namespace mrpcc
