@@ -8,7 +8,8 @@
 #include <map>  
 #include <thread>
 #include <memory>
-
+#include <vector>
+#include <set>
 #include "Buffer.h"
 #include "MmapFile.h"
 enum LogLevel
@@ -134,11 +135,58 @@ public:
 private:
     LogManager();
 
+    void Run();
+
+    std::mutex logsMutex_;
+    std::vector<std::shared_ptr<Logger>> logs_;
+
+    std::mutex mutex_;
+    std::condition_variable cond_;
+    bool shutdown_;
+    std::set<Logger*> busyLogs_;
+
+    //null object
     Logger nullLog_;
-
+    std::thread iothread_;
 };
-}
 
+class LogHelper
+{
+private:
+    LogLevel level_;
+public:
+    LogHelper(LogLevel level);
+    Logger& operator= (Logger& log);
+};
+
+
+#undef INF
+#undef DEB
+#undef WRN
+#undef ERR
+#undef USR
+#undef ALL
+
+#define LOG_INF(x) (!(x) || (x)->IsLevelForbid(logINFO)) ? *mrpc::LogManager::Instance().NullLog() : (mrpc::LogHelper(logINFO)) = x->SetCurLevel(logINFO)
+
+#define LOG_DEB(x) (!(x) || (x)->IsLevelForbid(logDEBUG)) ? *mrpc::LogManager::Instance().NullLog() : (mrpc::LogHelper(logDEBUG)) = x->SetCurLevel(logDEBUG)
+
+#define LOG_WRN(x) (!(x) || (x)->IsLevelForbid(logWARN)) ? *mrpc::LogManager::Instance().NullLog() : (mrpc::LogHelper(logWARN)) = x->SetCurLevel(logWARN)
+
+#define LOG_ERR(x) (!(x) || (x)->IsLevelForbid(logERROR)) ? *mrpc::LogManager::Instance().NullLog() : (mrpc::LogHelper(logERROR)) = x->SetCurLevel(logERROR)
+
+#define LOG_USR(x) (!(x) || (x)->IsLevelForbid(logUSR)) ? *mrpc::LogManager::Instance().NullLog() : (mrpc::LogHelper(logUSR)) = x->SetCurLevel(logUSR)
+
+#define LOG_ALL(x) (!(x) || (x)->IsLevelForbid(logALL)) ? *mrpc::LogManager::Instance().NullLog() : (mrpc::LogHelper(logALL)) = x->SetCurLevel(logALL)
+
+#define     INF     LOG_INF
+#define     DEB     LOG_DEB
+#define     WRN     LOG_WRN
+#define     ERR     LOG_ERR
+#define     USR     LOG_USR 
+#define     ALL     LOG_ALL 
+
+}   // end namespace mrpc   
 
 
 #endif
