@@ -19,7 +19,7 @@ enum LogLevel
     logWARN  = 0x01 << 2,
     logERROR = 0x01 << 3,
     logUSR   = 0x01 << 4,
-    logALL   = 0xffffffff
+    logALL   = 0xFFFFFFFF
 };
 
 enum LogDEST
@@ -96,7 +96,7 @@ private:
     bool shutdown_;
 
     // const vars from init()
-    LogLevel level_;
+    unsigned int level_;
     std::string directory_;
     unsigned int dest_;
     std::string fileName_;
