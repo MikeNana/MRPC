@@ -202,6 +202,63 @@ void Logger::Flush(LogLevel level)
             memcpy(tmpBuffer_ + kPrefixTimeLen, "[???]:", kPrefixLevelLen);
             break;
     }
+
+    // initialize tid_, | thread_id ...
+    if(tidLen_ == 0)
+    {
+        std::ostringstream oss;
+        oss << std::this_thread::get_id();
+
+        const auto& str = oss.str();
+        tidLen_ = std::min<int>(str.size(), sizeof(tid_));  // avoid overflowing
+        tid_[0] = '|';  // | thread id
+        memcpy(tid_ + 1, str.data(), tidLen_);
+        tidLen_ += 1;
+    }
+
+    // Put tid_ at tail, because tid_ length vary from different platform
+    memcpy(tmpBuffer_ + pos_, tid_, tidLen_);
+    pos_ += tidLen_;
+
+    tmpBuffer_[pos_++] = '\n';
+    tmpBuffer_[pos_]   = '\0';
+
+    // get relevant bufferinfo
+    BufferInfo* info = nullptr;
+    {
+        std::unique_lock<std::mutex> guard(mutex_);
+        if(shutdown_)
+        {
+            std::cout << tmpBuffer_;
+            return;
+        }
+
+        info = buffers_[std::this_thread::get_id()].get();
+        if(!info)
+            buffers_[std::this_thread::get_id()].reset(info = new BufferInfo());
+        assert(!info->inuse_);
+        info->inuse_ = true;
+    }
+
+    // Format : level info, length, log msg
+    int logLevel = level;
+
+    info->buffer_.PushData(&logLevel, sizeof(logLevel));
+    info->buffer_.PushData(&pos_, sizeof(pos_));
+    info->buffer_.PushData(tmpBuffer_, pos_);
+
+    _Reset();
+
+    // if current log is busy, handle it
+    if(info->buffer_.readablesize() > kFlushThreshold)
+    {
+        info->inuse_ = false;
+        LogManager::Instance().AddBusyLog(this);
+    }
+    else
+    {
+        info->inuse_ = false;
+    }
 }
 
 
