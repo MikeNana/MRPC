@@ -261,6 +261,52 @@ void Logger::Flush(LogLevel level)
     }
 }
 
+void Logger::_Color(unsigned int color)
+{
+    const char* colorstring[Max] = 
+    {
+        "",
+        "\033[1;31;40m",
+        "\033[1;32;40m",
+        "\033[1;33;40m",
+        "\033[0m",
+        "\033[1;34;40m",
+        "\033[1;35;40m",
+        "\033[1;37;40m",
+    };
+
+    fprintf(stdout, "%s", colorstring[color]);
+}
+
+Logger& Logger::operator<< (const char* msg)
+{
+    if(IsLevelForbid(curlevel_))
+        return *this;
+
+    const auto len = strlen(msg);
+    if(pos_ + len >= kMaxCharPerLog)
+        return *this;
+
+    memcpy(tmpBuffer_ + pos_, msg, len);
+    pos_ += len;
+
+    return *this;
+}
+
+Logger& Logger::operator<< (const unsigned char* msg)
+{
+    return operator<< (reinterpret_cast<const char*> (msg));
+}
+
+Logger& Logger::operator<< (const std::string& msg)
+{
+    return operator<< (msg.c_str());
+}
+
+Logger& Logger::operator<< (void* ptr)
+{
+    
+}
 
 
 }   // end namespace mrpc
