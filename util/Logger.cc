@@ -305,7 +305,423 @@ Logger& Logger::operator<< (const std::string& msg)
 
 Logger& Logger::operator<< (void* ptr)
 {
+    if(IsLevelForbid(curlevel_))
+        return *this;
     
+    if(pos_ + 18 < kMaxCharPerLog)
+    {
+        unsigned long ptrValue = (unsigned long)ptr;
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%#018lx", ptrValue);
+        if(nbytes > 0)
+            pos_ += nbytes;
+    }
+
+    return *this;
+}
+
+Logger& Logger::operator<< (unsigned char a)
+{
+    if(IsLevelForbid(curlevel_))
+        return *this;
+    
+    if(pos_ + 3 < kMaxCharPerLog)
+    {
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%hhd", a);
+        if(nbytes > 0)
+            pos_ += nbytes;
+    }
+
+    return *this;
+}
+
+Logger&  Logger::operator<< (char a) {
+    if (IsLevelForbid(curlevel_))
+        return *this;
+
+    if (pos_ + 3 < kMaxCharPerLog) {
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%hhu", a);
+        if (nbytes > 0) pos_ += nbytes;
+    }
+
+    return  *this;
+}
+
+Logger&  Logger::operator<< (unsigned short a) {
+    if (IsLevelForbid(curlevel_))
+        return *this;
+
+    if (pos_ + 5 < kMaxCharPerLog) {
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%hu", a);
+        if (nbytes > 0) pos_ += nbytes;
+    }
+
+    return  *this;
+}
+
+Logger&  Logger::operator<< (short a) {
+    if (IsLevelForbid(curlevel_))
+        return *this;
+
+    if (pos_ + 5 < kMaxCharPerLog) {
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%hd", a);
+        if (nbytes > 0) pos_ += nbytes;
+    }
+
+    return  *this;
+}
+
+Logger&  Logger::operator<< (unsigned int a) {
+    if (IsLevelForbid(curlevel_))
+        return *this;
+
+    if (pos_ + 10 < kMaxCharPerLog) {
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%u", a);
+        if (nbytes > 0) pos_ += nbytes;
+    }
+
+    return  *this;
+}
+
+Logger&  Logger::operator<< (int a) {
+    if (IsLevelForbid(curlevel_))
+        return *this;
+
+    if (pos_ + 10 < kMaxCharPerLog) {
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%d", a);
+        if (nbytes > 0) pos_ += nbytes;
+    }
+
+    return  *this;
+}
+
+Logger&  Logger::operator<< (unsigned long a) {
+    if (IsLevelForbid(curlevel_))
+        return *this;
+
+    if (pos_ + 20 < kMaxCharPerLog) {
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%lu", a);
+        if (nbytes > 0) pos_ += nbytes;
+    }
+
+    return  *this;
+}
+
+Logger&  Logger::operator<< (long a) {
+    if (IsLevelForbid(curlevel_))
+        return *this;
+
+    if (pos_ + 20 < kMaxCharPerLog) {
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%ld", a);
+        if (nbytes > 0) pos_ += nbytes;
+    }
+
+    return  *this;
+}
+
+Logger&  Logger::operator<< (unsigned long long a) {
+    if (IsLevelForbid(curlevel_))
+        return *this;
+
+    if (pos_ + 20 < kMaxCharPerLog) {
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%llu", a);
+        if (nbytes > 0) pos_ += nbytes;
+    }
+
+    return  *this;
+}
+
+Logger&  Logger::operator<< (long long a) {
+    if (IsLevelForbid(curlevel_))
+        return *this;
+
+    if (pos_ + 20 < kMaxCharPerLog) {
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%lld", a);
+        if (nbytes > 0) pos_ += nbytes;
+    }
+
+    return  *this;
+}
+
+Logger&  Logger::operator<< (double a) {
+    if (IsLevelForbid(curlevel_))
+        return *this;
+
+    if (pos_ + 20 < kMaxCharPerLog) {
+        auto nbytes = snprintf(tmpBuffer_ + pos_, kMaxCharPerLog - pos_, "%.6g", a);
+        if (nbytes > 0) pos_ += nbytes;
+    }
+
+    return  *this;
+}
+
+bool Logger::Update()
+{
+    std::vector< std::unique_ptr<BufferInfo>> tmpBufs;
+
+    bool todo = false;
+    {
+        std::unique_lock<std::mutex> guard(mutex_);
+
+        for(auto it(buffers_.begin()); it != buffers_.end(); )
+        {
+            assert(it->second);
+            
+            if(it->second->inuse_)
+            {
+                todo = true;
+                ++it;
+            }
+            else
+            {
+                tmpBufs.push_back(std::move(it->second));
+                it = buffers_.erase(it);
+            }
+        }
+    }
+
+    for(auto& pbuf : tmpBufs)
+    {
+        const char* data = pbuf->buffer_.readaddr();
+        const auto size = pbuf->buffer_.readablesize();
+        auto nWritten = _Log(data, size);
+        assert(nWritten == size);
+    }
+
+    file_.Sync();
+
+    return todo;
+}
+
+void Logger::_Reset()
+{
+    curlevel_ = 0;
+    pos_ = kPrefixLevelLen + kPrefixTimeLen;
+}
+
+// Log data by some way
+size_t Logger::_Log(const char* data, size_t dataLen)
+{
+    const auto minLogSize = sizeof(int) + sizeof(size_t);
+
+    size_t nOffset = 0;
+    while(nOffset + minLogSize < dataLen)
+    {
+        int level = *(int*)(data + nOffset);
+        size_t len = *(size_t*)(data + nOffset + sizeof(int));
+        if(dataLen < nOffset + minLogSize + len)
+        {
+            std::cerr << "_WriteLog skip 0!!!\n";
+            break;
+        }
+
+        _WriteLog(level, len, data + nOffset + minLogSize);
+        nOffset += minLogSize + len;
+    }
+
+    return nOffset;
+}
+
+void Logger::_WriteLog(unsigned int level, size_t len, const char* data)
+{
+    assert(len > 0 && data);
+
+    if(dest_ & logConsole)
+    {
+        switch(level)
+        {
+            case(logINFO):
+                _Color(Green);
+                break;
+
+            case(logDEBUG):
+                _Color(White);
+                break;
+            
+            case(logWARN):
+                _Color(Yellow);
+                break;
+            
+            case(logERROR):
+                _Color(Red);
+                break;
+
+            case(logUSR):
+                _Color(Purple);
+                break;
+            
+            default:
+                _Color(Red);
+                break;
+        }
+
+        fprintf(stdout, "%.*s", static_cast<int>(len), data);
+        _Color(Normal);
+    }
+
+    if(dest_ & logFile)
+    {
+        while(_CheckChangeFile())
+        {
+            _CloseLogFile();
+            if(!_OpenLogFile(_MakeFileName().c_str()))
+                break;
+        }
+
+        assert(file_.IsOpen());
+        file_.Write(data, len);
+    }
+}
+
+Logger& Logger::SetCurLevel(unsigned int level)
+{
+    curlevel_ = level;
+    return *this;
+}
+
+void Logger::shutdown()
+{
+    std::unique_lock<std::mutex> guard(mutex_);
+    if(shutdown_)
+        return;
+    shutdown_ = true;
+    std::cout << "stop logger" << (void*)this << std::endl;
+}
+
+//singleton pattern
+LogManager& LogManager::Instance()
+{
+    static LogManager mgr;
+    return mgr;
+}
+
+LogManager::LogManager() : shutdown_(true)
+{
+    nullLog_.Init(0);
+}
+
+void LogManager::start()
+{
+    std::unique_lock<std::mutex> guard(mutex_);
+    assert(shutdown_);
+    shutdown_ = false;
+
+    auto io = std::bind(&LogManager::Run, this);
+    iothread_ = std::thread{std::move(io)};
+}
+
+void LogManager::stop()
+{
+    {
+        std::unique_lock<std::mutex> guard(mutex_);
+        if(shutdown_)
+            return;
+        shutdown_ = true;
+        guard.unlock();
+        cond_.notify_all();
+    }
+
+    {
+        std::lock_guard<std::mutex> guard(mutex_);
+        for(auto& plog : logs_)
+            plog->shutdown();
+    }
+
+    if(iothread_.joinable())
+        iothread_.join();
+}
+
+std::shared_ptr<Logger> LogManager::CreateLog(unsigned int level, unsigned int dest, const char* dir)
+{
+    auto log(std::make_shared<Logger>());
+
+    if(!log->Init(level, dest, dir))
+    {
+        std::shared_ptr<Logger> nulllog(&nullLog_, [](Logger* ) {});
+        return nulllog;
+    }
+    else
+    {
+        std::lock_guard<std::mutex> guard(logsMutex_);
+        if(shutdown_)
+        {
+            std::cerr << "Warning: Please call LogManager::Start() first.\n";
+            std::shared_ptr<Logger> nulllog(&nullLog_, [](Logger* ) {});
+            return nulllog;
+        }
+
+        logs_.emplace_back(log);
+    }
+    
+    return log;
+}
+
+void LogManager::AddBusyLog(Logger* log)
+{
+    std::unique_lock<std::mutex> guard(mutex_);
+    if(shutdown_)
+        return;
+
+    if(busyLogs_.insert(log).second)
+    {
+        guard.unlock();
+        cond_.notify_one();
+    }   
+}
+
+void LogManager::Run()
+{
+    const std::chrono::milliseconds kFlushInterval(1);
+
+    bool run = true;
+    while(run)
+    {
+        std::vector<Logger*> tmpBusy;
+
+        {
+            std::unique_lock<std::mutex> guard(mutex_);
+            cond_.wait_for(guard, kFlushInterval);
+            if(!busyLogs_.empty())
+            {
+                tmpBusy.assign(busyLogs_.begin(), busyLogs_.end());
+                busyLogs_.clear();
+            }
+
+            if(shutdown_)
+                run = false;
+        } 
+
+        if(tmpBusy.empty())
+        {
+            std::unique_lock<std::mutex> guard(mutex_);
+            for(auto& plog : logs_)
+                tmpBusy.push_back(plog.get());
+        }
+
+        for(auto plog : tmpBusy)
+            plog->Update();
+    }
+
+    std::unique_lock<std::mutex> guard(mutex_);
+    assert(shutdown_);
+    while(!logs_.empty())
+    {
+        for(auto it(logs_.begin()); it != logs_.end(); )
+        {
+            if(!(*it)->Update())
+                it = logs_.erase(it);
+            else
+                ++it;
+        }
+    }
+}
+
+LogHelper::LogHelper(LogLevel level) : level_(level) {}
+
+
+Logger& LogHelper::operator= (Logger& log)
+{
+    log.Flush(level_);
+    return log;
 }
 
 
